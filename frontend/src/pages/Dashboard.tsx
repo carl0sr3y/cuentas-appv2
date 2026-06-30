@@ -17,7 +17,7 @@ interface Summary {
 export default function Dashboard() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("resumen");
+  const [activeTab, setActiveTab] = useState("clientes");
   const [showNotifications, setShowNotifications] = useState(false);
   const { user, logout, notifications } = useAuth();
   const navigate = useNavigate();

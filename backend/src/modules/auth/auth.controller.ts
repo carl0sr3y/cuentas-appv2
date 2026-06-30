@@ -68,3 +68,19 @@ export const login = async (
     user: { id: user.id, name: user.name, email: user.email, role: user.role }
   });
 };
+
+export const changePassword = async (
+  request: FastifyRequest<{ Body: { email: string; newPassword: string } }>,
+  reply: FastifyReply
+) => {
+  const { email, newPassword } = request.body;
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  const user = await prisma.user.update({
+    where: { email },
+    data: { password: hashedPassword }
+  });
+
+  return reply.send({ message: "Contraseña actualizada", email: user.email });
+};

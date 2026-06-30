@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://192.168.1.74:3002",
+  baseURL: "https://cuentas-appv2-production.up.railway.app",
 });
 
 api.interceptors.request.use((config) => {

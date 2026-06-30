@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!token) return;
 
-    const ws = new WebSocket("ws://localhost:3002/ws");
+    const ws = new WebSocket("wss://cuentas-appv2-production.up.railway.app/ws");
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);

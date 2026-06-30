@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(EMPLOYEE)
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  clientTransactions ClientTransaction[]
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+model Category {
+  id           String          @id @default(uuid())
+  name         String
+  type         TransactionType
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  type        TransactionType
+  amount      Decimal
+  description String?
+  date        DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  categoryId  String
+  category    Category        @relation(fields: [categoryId], references: [id])
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model Client {
+  id           String            @id @default(uuid())
+  name         String
+  type         ClientType        @default(PERSON)
+  phone        String?
+  email        String?
+  isFavorite   Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  transactions ClientTransaction[]
+}
+
+enum ClientType {
+  PERSON
+  COMPANY
+}
+
+model ClientTransaction {
+  id          String   @id @default(uuid())
+  type        TransactionType
+  amount      Decimal
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}

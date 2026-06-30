@@ -39,6 +39,8 @@ export default function Transactions() {
 
   useEffect(() => {
     loadData();
+    window.addEventListener("data-updated", loadData);
+    return () => window.removeEventListener("data-updated", loadData);
   }, []);
 
   const handleSubmit = async () => {

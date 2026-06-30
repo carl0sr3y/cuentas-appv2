@@ -23,8 +23,15 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get("/reports/summary").then((res) => setSummary(res.data));
-    api.get("/transactions").then((res) => setTransactions(res.data));
+    const loadData = () => {
+      api.get("/reports/summary").then((res) => setSummary(res.data));
+      api.get("/transactions").then((res) => setTransactions(res.data));
+    };
+
+    loadData();
+
+    window.addEventListener("data-updated", loadData);
+    return () => window.removeEventListener("data-updated", loadData);
   }, []);
 
   const handleLogout = () => {
@@ -97,11 +104,10 @@ export default function Dashboard() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-3 px-4 text-sm font-semibold capitalize transition border-b-2 whitespace-nowrap ${
-                activeTab === tab
+              className={`py-3 px-4 text-sm font-semibold capitalize transition border-b-2 whitespace-nowrap ${activeTab === tab
                   ? "border-blue-500 text-blue-400"
                   : "border-transparent text-gray-400 hover:text-white"
-              }`}
+                }`}
             >
               {tab}
             </button>

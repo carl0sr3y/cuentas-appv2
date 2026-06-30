@@ -48,6 +48,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (Notification.permission === "granted") {
         new Notification("Cuentas App", { body: data.message });
       }
+
+      window.dispatchEvent(new Event("data-updated"));
     };
 
     if (Notification.permission === "default") {

@@ -24,7 +24,11 @@ export default function Clients() {
         setClients(res.data);
     };
 
-    useEffect(() => { loadClients(); }, []);
+    useEffect(() => {
+        loadClients();
+        window.addEventListener("data-updated", loadClients);
+        return () => window.removeEventListener("data-updated", loadClients);
+    }, []);
 
     const handleCreateClient = async () => {
         if (!form.name) return;

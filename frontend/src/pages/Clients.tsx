@@ -10,6 +10,7 @@ interface Client {
     email?: string;
     isFavorite: boolean;
     balance: number;
+    transactions?: any[];
 }
 
 export default function Clients() {
@@ -18,6 +19,10 @@ export default function Clients() {
     const [selectedClient, setSelectedClient] = useState<any | null>(null);
     const [form, setForm] = useState({ name: "", type: "PERSON", phone: "", email: "" });
     const [transForm, setTransForm] = useState({ type: "INCOME", amount: "", description: "" });
+    const [saving, setSaving] = useState(false);
+    const [savingTransaction, setSavingTransaction] = useState(false);
+    const [deleteMode, setDeleteMode] = useState(false);
+    const [selectedToDelete, setSelectedToDelete] = useState<string[]>([]);
 
     const loadClients = async () => {
         const res = await api.get("/clients");
@@ -30,13 +35,11 @@ export default function Clients() {
         return () => window.removeEventListener("data-updated", loadClients);
     }, []);
 
-    const [saving, setSaving] = useState(false);
-
     const handleCreateClient = async () => {
         if (!form.name || saving) return;
         setSaving(true);
 
-        const tempClient = {
+        const tempClient: Client = {
             id: "temp-" + Date.now(),
             ...form,
             isFavorite: false,
@@ -44,7 +47,7 @@ export default function Clients() {
             transactions: []
         };
 
-        setClients((prev) => [...prev, tempClient as any]);
+        setClients((prev) => [...prev, tempClient]);
         setForm({ name: "", type: "PERSON", phone: "", email: "" });
         setShowForm(false);
 
@@ -59,10 +62,20 @@ export default function Clients() {
         }
     };
 
-    const handleDeleteClient = async (id: string) => {
-        if (!confirm("¿Eliminar este cliente?")) return;
-        await api.delete(`/clients/${id}`);
+    const handleDeleteSelected = async () => {
+        if (!confirm(`¿Eliminar ${selectedToDelete.length} cliente(s)?`)) return;
+        for (const id of selectedToDelete) {
+            await api.delete(`/clients/${id}`);
+        }
+        setSelectedToDelete([]);
+        setDeleteMode(false);
         loadClients();
+    };
+
+    const toggleSelectClient = (id: string) => {
+        setSelectedToDelete((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
     };
 
     const handleToggleFavorite = async (id: string) => {
@@ -71,11 +84,13 @@ export default function Clients() {
     };
 
     const handleOpenClient = async (id: string) => {
+        const basicClient = clients.find((c) => c.id === id);
+        if (basicClient) {
+            setSelectedClient({ ...basicClient, transactions: [] });
+        }
         const res = await api.get(`/clients/${id}`);
         setSelectedClient(res.data);
     };
-
-    const [savingTransaction, setSavingTransaction] = useState(false);
 
     const handleAddTransaction = async () => {
         if (!transForm.amount || savingTransaction) return;
@@ -115,9 +130,8 @@ export default function Clients() {
         }
     };
 
-    // Agrupar por letra
-    const nonFavorites = clients.filter(c => !c.isFavorite);
-    const favorites = clients.filter(c => c.isFavorite);
+    const favorites = clients.filter((c) => c.isFavorite);
+    const nonFavorites = clients.filter((c) => !c.isFavorite);
     const grouped = nonFavorites.reduce((acc: Record<string, Client[]>, c) => {
         const letter = c.name[0].toUpperCase();
         if (!acc[letter]) acc[letter] = [];
@@ -128,18 +142,20 @@ export default function Clients() {
     if (selectedClient) {
         return (
             <div className="p-6 max-w-3xl mx-auto">
-                <button
-                    onClick={() => setSelectedClient(null)}
-                    className="text-blue-400 hover:text-blue-300 mb-4 flex items-center gap-2"
-                >
-                    ← Volver
-                </button>
-                <button
-                    onClick={() => generateClientPDF(selectedClient)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm"
-                >
-                    Exportar PDF
-                </button>
+                <div className="flex justify-between items-center mb-4">
+                    <button
+                        onClick={() => setSelectedClient(null)}
+                        className="text-blue-400 hover:text-blue-300 flex items-center gap-2"
+                    >
+                        ← Volver
+                    </button>
+                    <button
+                        onClick={() => generateClientPDF(selectedClient)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm"
+                    >
+                        Exportar PDF
+                    </button>
+                </div>
 
                 <div className="bg-gray-800 rounded-xl p-6 mb-6">
                     <div className="flex justify-between items-start">
@@ -158,7 +174,6 @@ export default function Clients() {
                     </div>
                 </div>
 
-                {/* Agregar transacción */}
                 <div className="bg-gray-800 rounded-xl p-6 mb-6">
                     <h3 className="text-white font-bold mb-4">Agregar movimiento</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -194,10 +209,9 @@ export default function Clients() {
                     </button>
                 </div>
 
-                {/* Historial */}
                 <h3 className="text-white font-bold mb-3">Historial</h3>
                 <div className="space-y-3">
-                    {selectedClient.transactions.map((t: any) => (
+                    {selectedClient.transactions?.map((t: any) => (
                         <div key={t.id} className="bg-gray-800 rounded-xl p-4 flex justify-between items-center">
                             <div>
                                 <p className="text-white">{t.description || (t.type === "INCOME" ? "Abono" : "Cargo")}</p>
@@ -209,16 +223,18 @@ export default function Clients() {
                                 <p className={`text-xl font-bold ${t.type === "INCOME" ? "text-green-400" : "text-red-400"}`}>
                                     {t.type === "INCOME" ? "+" : "-"}Q{parseFloat(t.amount).toFixed(2)}
                                 </p>
-                                <button
-                                    onClick={async () => {
-                                        if (!confirm("¿Eliminar este movimiento?")) return;
-                                        await api.delete(`/clients/${selectedClient.id}/transactions/${t.id}`);
-                                        handleOpenClient(selectedClient.id);
-                                    }}
-                                    className="bg-red-700 hover:bg-red-800 text-white text-xs px-3 py-1 rounded-lg"
-                                >
-                                    Eliminar
-                                </button>
+                                {!t.id.startsWith("temp-") && (
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm("¿Eliminar este movimiento?")) return;
+                                            await api.delete(`/clients/${selectedClient.id}/transactions/${t.id}`);
+                                            handleOpenClient(selectedClient.id);
+                                        }}
+                                        className="bg-red-700 hover:bg-red-800 text-white text-xs px-3 py-1 rounded-lg"
+                                    >
+                                        Eliminar
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -231,97 +247,142 @@ export default function Clients() {
         <div className="p-6 max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-white">Clientes</h2>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
-                >
-                    + Nuevo cliente
-                </button>
+                <div className="flex gap-2">
+                    {deleteMode ? (
+                        <>
+                            <button
+                                onClick={handleDeleteSelected}
+                                disabled={selectedToDelete.length === 0}
+                                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition disabled:opacity-30"
+                            >
+                                Eliminar ({selectedToDelete.length})
+                            </button>
+                            <button
+                                onClick={() => { setDeleteMode(false); setSelectedToDelete([]); }}
+                                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition"
+                            >
+                                Cancelar
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button
+                                onClick={() => setDeleteMode(true)}
+                                className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg transition"
+                            >
+                                Eliminar
+                            </button>
+                            <button
+                                onClick={() => setShowForm(true)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+                            >
+                                + Nuevo cliente
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
+            {/* Popup nuevo cliente */}
             {showForm && (
-                <div className="bg-gray-800 rounded-xl p-6 mb-6">
-                    <h3 className="text-white font-bold mb-4">Nuevo cliente</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-gray-300 text-sm mb-1 block">Nombre</label>
-                            <input
-                                type="text"
-                                value={form.name}
-                                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
-                                placeholder="Nombre completo o empresa"
-                            />
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-start justify-center z-50 pt-10 px-4">
+                    <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md">
+                        <h3 className="text-white font-bold mb-4">Nuevo cliente</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-gray-300 text-sm mb-1 block">Nombre</label>
+                                <input
+                                    type="text"
+                                    value={form.name}
+                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
+                                    placeholder="Nombre completo o empresa"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-gray-300 text-sm mb-1 block">Tipo</label>
+                                <select
+                                    value={form.type}
+                                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
+                                >
+                                    <option value="PERSON">Persona</option>
+                                    <option value="COMPANY">Empresa</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-gray-300 text-sm mb-1 block">Teléfono</label>
+                                <input
+                                    type="text"
+                                    value={form.phone}
+                                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
+                                    placeholder="Opcional"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-gray-300 text-sm mb-1 block">Email</label>
+                                <input
+                                    type="text"
+                                    value={form.email}
+                                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                                    className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
+                                    placeholder="Opcional"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className="text-gray-300 text-sm mb-1 block">Tipo</label>
-                            <select
-                                value={form.type}
-                                onChange={(e) => setForm({ ...form, type: e.target.value })}
-                                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={handleCreateClient}
+                                disabled={saving}
+                                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition disabled:opacity-50 flex-1"
                             >
-                                <option value="PERSON">Persona</option>
-                                <option value="COMPANY">Empresa</option>
-                            </select>
+                                {saving ? "Guardando..." : "Guardar"}
+                            </button>
+                            <button
+                                onClick={() => setShowForm(false)}
+                                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition flex-1"
+                            >
+                                Cancelar
+                            </button>
                         </div>
-                        <div>
-                            <label className="text-gray-300 text-sm mb-1 block">Teléfono</label>
-                            <input
-                                type="text"
-                                value={form.phone}
-                                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
-                                placeholder="Opcional"
-                            />
-                        </div>
-                        <div>
-                            <label className="text-gray-300 text-sm mb-1 block">Email</label>
-                            <input
-                                type="text"
-                                value={form.email}
-                                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg"
-                                placeholder="Opcional"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex gap-3 mt-4">
-                        <button
-                            onClick={handleCreateClient}
-                            disabled={saving}
-                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition disabled:opacity-50"
-                        >
-                            {saving ? "Guardando..." : "Guardar"}
-                        </button>
-                        <button
-                            onClick={() => setShowForm(false)}
-                            className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition"
-                        >
-                            Cancelar
-                        </button>
                     </div>
                 </div>
             )}
 
-            {/* Favoritos */}
             {favorites.length > 0 && (
                 <div className="mb-6">
                     <h3 className="text-yellow-400 font-bold mb-3">⭐ Favoritos</h3>
                     <div className="space-y-3">
                         {favorites.map((c) => (
-                            <ClientRow key={c.id} client={c} onOpen={handleOpenClient} onDelete={handleDeleteClient} onFavorite={handleToggleFavorite} />
+                            <ClientRow
+                                key={c.id}
+                                client={c}
+                                onOpen={handleOpenClient}
+                                onFavorite={handleToggleFavorite}
+                                deleteMode={deleteMode}
+                                selected={selectedToDelete.includes(c.id)}
+                                onSelect={toggleSelectClient}
+                            />
                         ))}
                     </div>
                 </div>
             )}
 
-            {/* Alfabético */}
             {Object.keys(grouped).sort().map((letter) => (
                 <div key={letter} className="mb-6">
                     <h3 className="text-gray-400 font-bold mb-3 border-b border-gray-700 pb-1">{letter}</h3>
                     <div className="space-y-3">
                         {grouped[letter].map((c) => (
-                            <ClientRow key={c.id} client={c} onOpen={handleOpenClient} onDelete={handleDeleteClient} onFavorite={handleToggleFavorite} />
+                            <ClientRow
+                                key={c.id}
+                                client={c}
+                                onOpen={handleOpenClient}
+                                onFavorite={handleToggleFavorite}
+                                deleteMode={deleteMode}
+                                selected={selectedToDelete.includes(c.id)}
+                                onSelect={toggleSelectClient}
+                            />
                         ))}
                     </div>
                 </div>
@@ -330,34 +391,44 @@ export default function Clients() {
     );
 }
 
-function ClientRow({ client, onOpen, onDelete, onFavorite }: {
+function ClientRow({ client, onOpen, onFavorite, deleteMode, selected, onSelect }: {
     client: Client;
     onOpen: (id: string) => void;
-    onDelete: (id: string) => void;
     onFavorite: (id: string) => void;
+    deleteMode: boolean;
+    selected: boolean;
+    onSelect: (id: string) => void;
 }) {
     return (
-        <div className="bg-gray-800 rounded-xl p-4 flex justify-between items-center">
-            <div className="cursor-pointer flex-1" onClick={() => onOpen(client.id)}>
-                <p className="text-white font-semibold">{client.name}</p>
-                <p className="text-gray-400 text-sm">{client.type === "PERSON" ? "Persona" : "Empresa"}</p>
+        <div
+            className={`rounded-xl p-4 flex justify-between items-center cursor-pointer transition ${selected ? "bg-red-900 border border-red-500" : "bg-gray-800"
+                }`}
+            onClick={() => deleteMode ? onSelect(client.id) : onOpen(client.id)}
+        >
+            <div className="flex items-center gap-3">
+                {deleteMode && (
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selected ? "bg-red-500 border-red-500" : "border-gray-500"
+                        }`}>
+                        {selected && <span className="text-white text-xs">✓</span>}
+                    </div>
+                )}
+                <div>
+                    <p className="text-white font-semibold">{client.name}</p>
+                    <p className="text-gray-400 text-sm">{client.type === "PERSON" ? "Persona" : "Empresa"}</p>
+                </div>
             </div>
             <div className="flex items-center gap-3">
                 <p className={`text-lg font-bold ${client.balance >= 0 ? "text-green-400" : "text-red-400"}`}>
                     Q{client.balance.toFixed(2)}
                 </p>
-                <button
-                    onClick={(e) => { e.stopPropagation(); onFavorite(client.id); }}
-                    className="text-xl hover:scale-125 transition"
-                >
-                    {client.isFavorite ? "⭐" : "☆"}
-                </button>
-                <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(client.id); }}
-                    className="bg-red-700 hover:bg-red-800 text-white text-sm px-3 py-1 rounded-lg"
-                >
-                    Eliminar
-                </button>
+                {!deleteMode && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onFavorite(client.id); }}
+                        className="text-xl hover:scale-125 transition"
+                    >
+                        {client.isFavorite ? "⭐" : "☆"}
+                    </button>
+                )}
             </div>
         </div>
     );

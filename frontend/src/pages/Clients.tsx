@@ -30,12 +30,33 @@ export default function Clients() {
         return () => window.removeEventListener("data-updated", loadClients);
     }, []);
 
+    const [saving, setSaving] = useState(false);
+
     const handleCreateClient = async () => {
-        if (!form.name) return;
-        await api.post("/clients", form);
+        if (!form.name || saving) return;
+        setSaving(true);
+
+        const tempClient = {
+            id: "temp-" + Date.now(),
+            ...form,
+            isFavorite: false,
+            balance: 0,
+            transactions: []
+        };
+
+        setClients((prev) => [...prev, tempClient as any]);
         setForm({ name: "", type: "PERSON", phone: "", email: "" });
         setShowForm(false);
-        loadClients();
+
+        try {
+            await api.post("/clients", tempClient);
+            loadClients();
+        } catch (err) {
+            setClients((prev) => prev.filter((c) => c.id !== tempClient.id));
+            alert("Error al guardar el cliente");
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleDeleteClient = async (id: string) => {
@@ -54,15 +75,44 @@ export default function Clients() {
         setSelectedClient(res.data);
     };
 
+    const [savingTransaction, setSavingTransaction] = useState(false);
+
     const handleAddTransaction = async () => {
-        if (!transForm.amount) return;
-        await api.post(`/clients/${selectedClient.id}/transactions`, {
-            ...transForm,
-            amount: parseFloat(transForm.amount)
-        });
+        if (!transForm.amount || savingTransaction) return;
+        setSavingTransaction(true);
+
+        const tempTransaction = {
+            id: "temp-" + Date.now(),
+            type: transForm.type,
+            amount: transForm.amount,
+            description: transForm.description,
+            date: new Date().toISOString(),
+            user: { name: "..." }
+        };
+
+        setSelectedClient((prev: any) => ({
+            ...prev,
+            transactions: [tempTransaction, ...prev.transactions],
+            balance:
+                transForm.type === "INCOME"
+                    ? prev.balance + parseFloat(transForm.amount)
+                    : prev.balance - parseFloat(transForm.amount)
+        }));
+
         setTransForm({ type: "INCOME", amount: "", description: "" });
-        handleOpenClient(selectedClient.id);
-        loadClients();
+
+        try {
+            await api.post(`/clients/${selectedClient.id}/transactions`, {
+                ...transForm,
+                amount: parseFloat(transForm.amount)
+            });
+            handleOpenClient(selectedClient.id);
+        } catch (err) {
+            alert("Error al guardar el movimiento");
+            handleOpenClient(selectedClient.id);
+        } finally {
+            setSavingTransaction(false);
+        }
     };
 
     // Agrupar por letra
@@ -137,9 +187,10 @@ export default function Clients() {
                     </div>
                     <button
                         onClick={handleAddTransaction}
-                        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition"
+                        disabled={savingTransaction}
+                        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition disabled:opacity-50"
                     >
-                        Agregar
+                        {savingTransaction ? "Guardando..." : "Agregar"}
                     </button>
                 </div>
 
@@ -237,9 +288,10 @@ export default function Clients() {
                     <div className="flex gap-3 mt-4">
                         <button
                             onClick={handleCreateClient}
-                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition"
+                            disabled={saving}
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition disabled:opacity-50"
                         >
-                            Guardar
+                            {saving ? "Guardando..." : "Guardar"}
                         </button>
                         <button
                             onClick={() => setShowForm(false)}

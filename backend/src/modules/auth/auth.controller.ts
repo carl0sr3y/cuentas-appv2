@@ -33,7 +33,7 @@ export const register = async (
 
   const token = await reply.jwtSign(
     { id: user.id, email: user.email, role: user.role },
-    { expiresIn: "8h" }
+    { expiresIn: "365d" }
   );
 
   return reply.status(201).send({
@@ -60,7 +60,7 @@ export const login = async (
 
   const token = await reply.jwtSign(
     { id: user.id, email: user.email, role: user.role },
-    { expiresIn: "8h" }
+    { expiresIn: "365d" }
   );
 
   return reply.send({

@@ -10,9 +10,11 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function AppRoutes() {
+  const { token } = useAuth();
+  
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={token ? <Navigate to="/dashboard" /> : <Login />} />
       <Route
         path="/dashboard"
         element={

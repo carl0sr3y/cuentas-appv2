@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import ClientDetail from "./pages/ClientDetail";
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { token } = useAuth();
@@ -17,6 +18,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/clients/:id"
+        element={
+          <PrivateRoute>
+            <ClientDetail />
           </PrivateRoute>
         }
       />

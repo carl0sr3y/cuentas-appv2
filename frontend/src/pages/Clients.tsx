@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import { generateClientPDF } from "../utils/generatePDF";
+import { useNavigate } from "react-router-dom";
 
 interface Client {
     id: string;
@@ -23,6 +24,7 @@ export default function Clients() {
     const [savingTransaction, setSavingTransaction] = useState(false);
     const [deleteMode, setDeleteMode] = useState(false);
     const [selectedToDelete, setSelectedToDelete] = useState<string[]>([]);
+    const navigate = useNavigate();
 
     const loadClients = async () => {
         const res = await api.get("/clients");
@@ -83,13 +85,8 @@ export default function Clients() {
         loadClients();
     };
 
-    const handleOpenClient = async (id: string) => {
-        const basicClient = clients.find((c) => c.id === id);
-        if (basicClient) {
-            setSelectedClient({ ...basicClient, transactions: [] });
-        }
-        const res = await api.get(`/clients/${id}`);
-        setSelectedClient(res.data);
+    const handleOpenClient = (id: string) => {
+        navigate(`/clients/${id}`, { replace: false });
     };
 
     const handleAddTransaction = async () => {

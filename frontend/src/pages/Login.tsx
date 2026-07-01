@@ -2,13 +2,16 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../AuthContext";
+import { useNavigate, Navigate } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, token } = useAuth();
+
+  if (token) return <Navigate to="/dashboard" />;
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
